@@ -55,6 +55,7 @@ the study.
 
 ### Copay for New Patients
 
+- DR RADFORD ADDED THIS
 - **min_copay_for_new_patient**: Minimum out-of-pocket copay required
   for a new patient visit.
 - **max_copay_for_new_patient**: Maximum out-of-pocket copay required

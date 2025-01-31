@@ -45,6 +45,7 @@ This codebook describes the variables used in the analysis of Medicare pricing d
   - **Type**: Mode value, categorical representation.
 
 ### Copay for New Patients
+- DR RADFORD ADDED THIS
 - **min_copay_for_new_patient**: Minimum out-of-pocket copay required for a new patient visit.
 - **max_copay_for_new_patient**: Maximum out-of-pocket copay required for a new patient visit.
 - **mode_copay_for_new_patient**: Most commonly observed copay required for a new patient visit.
