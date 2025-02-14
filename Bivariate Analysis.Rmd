@@ -1,0 +1,73 @@
+---
+title: "Bivariate Linear Regression Analysis on Scope of Practice and Mode Copay for New Patients"
+output: github_document
+---
+# 
+
+```{r}
+install.packages("readxl", repos = "https://cran.rstudio.com/")
+
+
+library(readxl)
+df <- read_excel("C:/Users/brean/OneDrive/Documents/PhD/Data/Bivariate anaylsis.xlsx", sheet = 1)
+
+```
+
+## Variables
+- **Dependent Variable (DV):** `mode_copay_for_new_patient`
+- **Independent Variable (IV):** `Scope of Practice`
+
+```{r}
+# Convert Scope of Practice into a binary variable
+df$scope_binary <- ifelse(df$`Scope of Practice` == "Full Independent Practice Authority", 1, 0)
+
+table(df$scope_binary)
+
+# Dependent variable
+
+df$DV <- df$mode_copay_for_new_patient
+
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+
+install.packages("rstanarm", dependencies = TRUE)
+
+install.packages("rstanarm", dependencies = TRUE)
+library(rstanarm)
+
+# Bayesian linear regression
+model <- stan_glm(DV ~ scope_binary, data = df, family = gaussian())
+
+# Summary
+summary(model)
+
+plot(df$scope_binary, df$DV,
+     xlab = "Scope of Practice (0 = Restricted, 1 = Full Practice)",
+     ylab = "Min Medicare Pricing for New Patients",
+     main = "Bivariate Regression: Scope of Practice vs. Pricing",
+     pch = 16, col = "black")
+
+abline(model, col = "blue")
+
+coef <- coef(model)
+eqn <- paste("y =", round(coef[1], 3), "+", round(coef[2], 3), "* x")
+
+```
+
+The formula DV ~ scope_binary shows that the dependent variable (DV) is being predicted by the independent variable scope_binary.
+
+Sample Size: 4000 total posterior samples were drawn from the model.
+
+Observations: The dataset has 2964 observations, and the model uses 2 predictors (including the intercept).
+
+Intercept: The average value of DV when the predictor (scope_binary) is 0, with a mean estimate of 33.5.
+
+scope_binary: This predictor has an estimated mean of 1.7, with a small standard deviation (0.1), indicating a consistent effect across the samples.
+sigma: Represents the standard deviation of the residuals (error term) in the model, which is estimated to be 1.7.
+
+Fit Diagnostics: mean_PPD: This is the mean of the posterior predictive distribution, which helps in assessing how well the model fits the data. It is very close to the intercept estimate (33.7).
+
+Conclusion:
+The model appears to have converged well and the results show stable and reasonable estimates. It appears that this model estimates that the predictor scope_binary has a positive effect on the outcome variable DV.
+
+
+
