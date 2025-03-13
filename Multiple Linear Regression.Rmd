@@ -1,0 +1,141 @@
+---
+title: "Multiple Linear Regression"
+output: github_document
+---
+
+**Analysis**
+
+### Independent Variable (IV): 
+  - **scope_binary** (0 = Restricted Scope of Practice, 1 = Full Practice Authority).
+
+### Dependent Variables (DV):
+  - **DV_new_patient**: Medicare pricing for new patients.
+  - **DV_established_patient**: Medicare pricing for established patients.
+
+### Model: 
+- Bayesian linear regression using stan_glm 
+
+## Results
+
+### Established Patients
+
+**Model Estimates**
+  - Intercept (Restricted SOP): 73.0 (baseline Medicare pricing when SOP is restricted).
+  - scope_binary Coefficient: +4.0 (increase in Medicare pricing when SOP is expanded to full practice).
+
+**Interpretation** 
+Expanding CRNA scope of practice is associated with a 4 unit increase in Medicare pricing for established patients.
+
+The red regression line in the Established Patient graph (slope = +4.0) confirms a positive relationship between SOP expansion and Medicare pricing for established patients.
+
+### New Patients
+
+**Model Estimates**
+- **Intercept (Restricted SOP)** (134.1): The baseline Medicare price for new patients when SOP is restricted (scope_binary = 0).
+-  **Scope of Practice Coefficient** (+7.1): When SOP is expanded to full practice authority (scope_binary = 1), Medicare pricing increases by 7.1 units.
+
+**Interpretation**:
+Expanding CRNA scope of practice is associated with a 7.1-unit increase in Medicare pricing for new patients.
+- The green regression line shows a positive trend between SOP expansion and Medicare pricing for new patients.
+
+**Summary**
+
+  - Both models show that expanding SOP increases Medicare pricing when a patient is seen by an anesthesiologist.
+  - New patients see a slightly higher increase (+7.1) compared to established patients (+4.0).
+-Full SOP significantly increases Medicare pricing for both new and established patients when seeing an anesthesiologist. 
+-Further research should assess whether this leads to improved patient access and outcomes.
+
+## Code
+
+```{r}
+
+library(readxl)
+library(ggplot2)
+library(rstanarm)
+library(lmtest)
+library(sandwich)
+
+df <- read_excel("C:/Users/brean/OneDrive/Documents/PhD/Data/Bivariate anaylsis.xlsx", sheet = 1)
+
+df$scope_binary <- ifelse(df$`Scope of Practice` == "Full Independent Practice Authority", 1, 0)
+
+data <- na.omit(df[, c("scope_binary", "mode_medicare_pricing_for_new_patient", "mode_medicare_pricing_for_established_patient")])
+
+data$DV_new_patient <- as.numeric(data$mode_medicare_pricing_for_new_patient)
+data$DV_established_patient <- as.numeric(data$mode_medicare_pricing_for_established_patient)
+
+set.seed(123)
+if (nrow(data) > 2000) {
+  data <- data[sample(nrow(data), 2000), ]
+}
+###**Bayesian Regression Model**
+model_established <- stan_glm(DV_established_patient ~ scope_binary, 
+                              data = data, family = gaussian(), algorithm = "optimizing")
+
+###**Classical Linear Regression Model for Residual Analysis**
+lm_model <- lm(DV_established_patient ~ scope_binary, data = data)
+
+data$residuals <- residuals(lm_model)
+data$fitted_values <- fitted(lm_model)
+
+ggplot(data, aes(x = fitted_values, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", color = "red", se = FALSE) +
+  labs(title = "Residuals vs. Fitted Values (Classical Model)",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+###**Breusch-Pagan Test for Heteroscedasticity**
+bptest(lm_model)
+
+coeftest(lm_model, vcov = vcovHC(lm_model, type = "HC3"))
+
+###**Residuals and Fitted Values for Bayesian Model**
+
+predicted_values <- posterior_predict(model_established)
+
+cat("Predicted Values Dimensions:", dim(predicted_values), "\n")
+cat("Number of Observations in Data:", nrow(data), "\n")
+
+if (ncol(predicted_values) != nrow(data)) {
+  stop("Mismatch in data dimensions: Check model input.")
+}
+
+data$fitted_values_bayes <- colMeans(predicted_values)  # Mean across posterior draws
+data$residuals_bayes <- data$DV_established_patient - data$fitted_values_bayes  # Compute residuals
+
+ggplot(data, aes(x = fitted_values_bayes, y = residuals_bayes)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), color = "blue", se = FALSE) +
+  labs(title = "Residuals vs. Fitted Values (Bayesian Model)",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+
+```
+
+
+
+
+### Deviations from Minimal Adjustment Set
+
+The model estimated above deviates from the minimal adjustment set by focusing solely on the independent variable (scope of practice legislation) without including additional control variables that could account for potential confounding factors. A better, more robust specification might be to incorporate variables such as healthcare provider density, state healthcare spending, patient demographics, and other local policy variables. The exclusion of these factors introduces potential omitted variable bias, meaning that the estimated effect of scope of practice legislation on Medicare pricing might be overstated or understated. The model also assumes a linear relationship between scope of practice and Medicare pricing, which may not fully capture non-linear effects. 
+
+#### Model Fit and Validation 
+
+**Residual Analysis**
+
+To assess the validity of the model, I conducted a residuals vs. fitted values diagnostic check (see above).
+
+The plot revealed vertical Stacking around one value (~73). Most residuals are clustered around a single fitted value (≈ 73), with a few outliers at higher fitted values (≈ 76-77).
+This may suggest that the model predicts very similar values for most observations, potentially indicating low variance in the dependent variable.
+
+For the most part, the residuals appear randomly scattered around zero, which suggests that the linearity assumption holds. However, the uneven spread of residuals across different fitted values may indicate issues related to omitted variable bias.
+
+I have also performed a Breusch-Pagan test which also confirmed heteroscedasticity, so we know that variance is not constant.
+
+To address these issues relating to heteroscedasticity, I would need to use robust standard errors and possibly consider additional control variables to address omitted variable bias. 
+
+
